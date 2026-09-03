@@ -4,6 +4,7 @@ import { Connection, Client } from '@temporalio/client'
 import { verifyEmailWorkflow } from './workflows'
 import { generateMessageFromTemplate } from './utils/messageGenerator'
 import { runTemporalWorker } from './worker'
+import { isValidCountryCode, normalizeCountryCode } from './utils/countryCode'
 const prisma = new PrismaClient()
 const app = express()
 app.use(express.json())
@@ -180,17 +181,25 @@ app.post('/leads/bulk', async (req: Request, res: Response) => {
 
   try {
     const validLeads = leads.filter((lead) => {
-      return (
-        lead.firstName &&
-        lead.lastName &&
-        lead.email &&
-        typeof lead.firstName === 'string' &&
-        lead.firstName.trim() &&
-        typeof lead.lastName === 'string' &&
-        lead.lastName.trim() &&
-        typeof lead.email === 'string' &&
-        lead.email.trim()
-      )
+      if (
+        !lead.firstName ||
+        !lead.lastName ||
+        !lead.email ||
+        typeof lead.firstName !== 'string' ||
+        !lead.firstName.trim() ||
+        typeof lead.lastName !== 'string' ||
+        !lead.lastName.trim() ||
+        typeof lead.email !== 'string' ||
+        !lead.email.trim()
+      ) {
+        return false
+      }
+
+      if (lead.countryCode && !isValidCountryCode(normalizeCountryCode(String(lead.countryCode)))) {
+        return false
+      }
+
+      return true
     })
 
     if (validLeads.length === 0) {
@@ -227,7 +236,7 @@ app.post('/leads/bulk', async (req: Request, res: Response) => {
             lastName: lead.lastName.trim(),
             email: lead.email.trim(),
             jobTitle: lead.jobTitle ? lead.jobTitle.trim() : null,
-            countryCode: lead.countryCode ? lead.countryCode.trim() : null,
+            countryCode: lead.countryCode ? normalizeCountryCode(lead.countryCode) : null,
             companyName: lead.companyName ? lead.companyName.trim() : null,
           },
         })
