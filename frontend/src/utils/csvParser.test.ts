@@ -224,3 +224,38 @@ Jane,Johnson,jane@example.com`
     expect(result[0].isValid).toBe(true)
   })
 })
+
+describe('parseCsv country code validation', () => {
+  const buildCsv = (countryCode: string) =>
+    `firstName,lastName,email,countryCode\nJohn,Doe,john@example.com,${countryCode}`
+
+  it('should accept valid ISO 3166-1 alpha-2 codes', () => {
+    for (const code of ['US', 'ES', 'GB', 'us']) {
+      const [lead] = parseCsv(buildCsv(code))
+      expect(lead.isValid).toBe(true)
+      expect(lead.errors).toEqual([])
+    }
+  })
+
+  it('should reject non-existent and malformed country codes', () => {
+    for (const code of ['XXX', 'ZZ', 'U', 'USA', '###', 'Ãœ']) {
+      const [lead] = parseCsv(buildCsv(code))
+      expect(lead.isValid).toBe(false)
+      expect(lead.errors).toContain('Invalid country code')
+    }
+  })
+
+  it('should reject numeric country codes', () => {
+    for (const code of ['34', '1', '840', '0']) {
+      const [lead] = parseCsv(buildCsv(code))
+      expect(lead.isValid).toBe(false)
+      expect(lead.errors).toContain('Invalid country code')
+    }
+  })
+
+  it('should treat an empty country code as valid (optional field)', () => {
+    const [lead] = parseCsv(buildCsv(''))
+    expect(lead.countryCode).toBeUndefined()
+    expect(lead.isValid).toBe(true)
+  })
+})
